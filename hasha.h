@@ -30,9 +30,8 @@ struct hasha_block_t {
 	pthread_mutex_t   mutex;
 };
 
-void init_hw_block (hasha_block_t *block_ptr, char *name, size_t id, size_t mst_ports_num, size_t slv_ports_num);
-
-void connect_blocks (hasha_block_t *mst_ptr, size_t mst_lane_idx, hasha_block_t *slv_ptr, size_t slv_lane_idx);
-
-void hasha_notify_slv   (hasha_block_t *mst_ptr, size_t mst_port_idx);
-void hasha_wait_for_mst (hasha_block_t *slv_ptr, size_t slv_port_idx);
+void hasha_init_block     (hasha_block_t *block_ptr, char *name, size_t id, size_t mst_ports_num, size_t slv_ports_num);
+void hasha_link_blocks    (hasha_block_t *mst_ptr, size_t mst_lane_idx,
+                           hasha_block_t *slv_ptr, size_t slv_lane_idx);
+void hasha_notify_slv     (hasha_block_t *mst_ptr, size_t mst_port_idx);
+void hasha_wait_for_mst   (hasha_block_t *slv_ptr, size_t slv_port_idx);

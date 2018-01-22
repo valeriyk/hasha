@@ -94,21 +94,21 @@ int main(int argc, char** argv) {
 	
 
 		
-	init_hw_block (&host_cpu, "Host CPU", DUMMY_ID, HOST_MAX_HASHA_MST_LANES, HOST_MAX_HASHA_SLV_LANES);
+	hasha_init_block (&host_cpu, "Host CPU", DUMMY_ID, HOST_MAX_HASHA_MST_LANES, HOST_MAX_HASHA_SLV_LANES);
 	for (size_t i = 0; i < GPU_MAX_USHADERS; i++) {
-		init_hw_block (&ushader[i], "Unified Shader", i, USHADER_MAX_HASHA_MST_LANES, USHADER_MAX_HASHA_SLV_LANES);
+		hasha_init_block (&ushader[i], "Unified Shader", i, USHADER_MAX_HASHA_MST_LANES, USHADER_MAX_HASHA_SLV_LANES);
 	}
-	init_hw_block (&videoctrl, "Video Controller", DUMMY_ID, VIDEOCTRL_MAX_HASHA_MST_LANES, VIDEOCTRL_MAX_HASHA_SLV_LANES);
+	hasha_init_block (&videoctrl, "Video Controller", DUMMY_ID, VIDEOCTRL_MAX_HASHA_MST_LANES, VIDEOCTRL_MAX_HASHA_SLV_LANES);
 	
 	printf ("HW blocks have been instantiated.\n");
 	
-	connect_blocks (&host_cpu,   HASHA_HOST_TO_USHADER_MST,  &ushader[0], HASHA_USHADER_UPSTREAM_SLV);
-	connect_blocks (&ushader[0], HASHA_USHADER_UPSTREAM_MST, &host_cpu,   HASHA_HOST_TO_USHADER_SLV);
+	hasha_link_blocks (&host_cpu,   HASHA_HOST_TO_USHADER_MST,  &ushader[0], HASHA_USHADER_UPSTREAM_SLV);
+	hasha_link_blocks (&ushader[0], HASHA_USHADER_UPSTREAM_MST, &host_cpu,   HASHA_HOST_TO_USHADER_SLV);
 	for (size_t i = 1; i < GPU_MAX_USHADERS; i++) {
-		connect_blocks (&ushader[i-1], HASHA_USHADER_DOWNSTREAM_MST, &ushader[i],   HASHA_USHADER_UPSTREAM_SLV);
-		connect_blocks (&ushader[i],   HASHA_USHADER_UPSTREAM_MST,   &ushader[i-1], HASHA_USHADER_DOWNSTREAM_SLV);
+		hasha_link_blocks (&ushader[i-1], HASHA_USHADER_DOWNSTREAM_MST, &ushader[i],   HASHA_USHADER_UPSTREAM_SLV);
+		hasha_link_blocks (&ushader[i],   HASHA_USHADER_UPSTREAM_MST,   &ushader[i-1], HASHA_USHADER_DOWNSTREAM_SLV);
 	}
-	connect_blocks (&host_cpu, HASHA_HOST_TO_VIDEOCTRL_MST, &videoctrl, HASHA_VIDEOCTRL_SLV);
+	hasha_link_blocks (&host_cpu, HASHA_HOST_TO_VIDEOCTRL_MST, &videoctrl, HASHA_VIDEOCTRL_SLV);
 	
 	printf ("Handshaking lanes have been instantiated.\n");
 	printf ("System constructed!\n");
