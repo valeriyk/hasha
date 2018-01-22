@@ -1,3 +1,5 @@
+#pragma once
+
 #define GPU_MAX_USHADERS 4
 
 enum {
