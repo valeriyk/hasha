@@ -21,7 +21,7 @@ static void *host_top (void *p) {
 			for (size_t k = 0; k < 2; k++) { // for each shader (vshader, pshader, ..)
 				printf ("SHADER %zu\n", k);
 				
-				hasha_notify_slv   (this_ptr, HASHA_HOST_TO_USHADER_MST);				
+				hasha_notify_slv   (this_ptr, HASHA_HOST_TO_USHADER_MST);
 				hasha_wait_for_mst (this_ptr, HASHA_HOST_TO_USHADER_SLV);
 			}
 			
@@ -45,9 +45,8 @@ static void *ushader_top (void *p) {
 		
 		// wait for request, then forward the request to the next ushader
 		hasha_wait_for_mst (this_ptr, HASHA_USHADER_UPSTREAM_SLV);
-		hasha_notify_slv   (this_ptr, HASHA_USHADER_DOWNSTREAM_MST);				
+		hasha_notify_slv   (this_ptr, HASHA_USHADER_DOWNSTREAM_MST);
 
-				
 		// work done here
 		printf ("ushader %zu executing...\n", this_ptr->id);
 		// end of work
@@ -86,21 +85,16 @@ static void *videoctrl_top (void *p) {
 int main(int argc, char** argv) {
       
     printf ("Constructing the system...\n");
-
-		    
+    
     hasha_block_t host_cpu;
 	hasha_block_t ushader[GPU_MAX_USHADERS];
 	hasha_block_t videoctrl;
 	
-
-		
-	hasha_init_block (&host_cpu, "Host CPU", DUMMY_ID, HOST_MAX_HASHA_MST_LANES, HOST_MAX_HASHA_SLV_LANES);
+	hasha_init_block (&host_cpu,  "Host CPU",         DUMMY_ID,      HOST_MAX_HASHA_MST_LANES,      HOST_MAX_HASHA_SLV_LANES);
+	hasha_init_block (&videoctrl, "Video Controller", DUMMY_ID, VIDEOCTRL_MAX_HASHA_MST_LANES, VIDEOCTRL_MAX_HASHA_SLV_LANES);
 	for (size_t i = 0; i < GPU_MAX_USHADERS; i++) {
 		hasha_init_block (&ushader[i], "Unified Shader", i, USHADER_MAX_HASHA_MST_LANES, USHADER_MAX_HASHA_SLV_LANES);
 	}
-	hasha_init_block (&videoctrl, "Video Controller", DUMMY_ID, VIDEOCTRL_MAX_HASHA_MST_LANES, VIDEOCTRL_MAX_HASHA_SLV_LANES);
-	
-	printf ("HW blocks have been instantiated.\n");
 	
 	hasha_link_blocks (&host_cpu,   HASHA_HOST_TO_USHADER_MST,  &ushader[0], HASHA_USHADER_UPSTREAM_SLV);
 	hasha_link_blocks (&ushader[0], HASHA_USHADER_UPSTREAM_MST, &host_cpu,   HASHA_HOST_TO_USHADER_SLV);
@@ -110,7 +104,6 @@ int main(int argc, char** argv) {
 	}
 	hasha_link_blocks (&host_cpu, HASHA_HOST_TO_VIDEOCTRL_MST, &videoctrl, HASHA_VIDEOCTRL_SLV);
 	
-	printf ("Handshaking lanes have been instantiated.\n");
 	printf ("System constructed!\n");
 	
 	
