@@ -10,7 +10,7 @@
 
 static void *host_top (void *p) {
 
-	hw_block_t *this_ptr = (hw_block_t *) p;
+	hasha_block_t *this_ptr = (hasha_block_t *) p;
 	
 	printf ("host started, waiting...\n");
 	
@@ -25,7 +25,7 @@ static void *host_top (void *p) {
 				hasha_wait_for_mst (this_ptr, HASHA_HOST_TO_USHADER_SLV);
 			}
 			
-			hasha_notify_slv   (this_ptr, HASHA_HOST_TO_VIDEOCTRL_MST);				
+			hasha_notify_slv   (this_ptr, HASHA_HOST_TO_VIDEOCTRL_MST);
 		}
 	}
 	
@@ -36,7 +36,7 @@ static void *host_top (void *p) {
 
 static void *ushader_top (void *p) {
 
-	hw_block_t *this_ptr = (hw_block_t *) p;
+	hasha_block_t *this_ptr = (hasha_block_t *) p;
 	
 	printf ("ushader %zu started, waiting...\n", this_ptr->id);
 	
@@ -67,7 +67,7 @@ static void *videoctrl_top (void *p) {
 	
 	printf ("videoctrl started, waiting...\n");
 	
-	hw_block_t *this_ptr = (hw_block_t *) p;
+	hasha_block_t *this_ptr = (hasha_block_t *) p;
 	
 	while (1) {
 	
@@ -87,20 +87,10 @@ int main(int argc, char** argv) {
       
     printf ("Constructing the system...\n");
 
-	const size_t HOST_MAX_HASHA_MST_LANES = 2;
-	const size_t HOST_MAX_HASHA_SLV_LANES = 1;
-	
-	const size_t USHADER_MAX_HASHA_MST_LANES = 2;
-	const size_t USHADER_MAX_HASHA_SLV_LANES = 2;
-	
-	const size_t VIDEOCTRL_MAX_HASHA_MST_LANES = 0;
-	const size_t VIDEOCTRL_MAX_HASHA_SLV_LANES = 1;
-
-	const size_t DUMMY_ID = 0;
-	    
-    hw_block_t host_cpu;
-	hw_block_t ushader[GPU_MAX_USHADERS];
-	hw_block_t videoctrl;
+		    
+    hasha_block_t host_cpu;
+	hasha_block_t ushader[GPU_MAX_USHADERS];
+	hasha_block_t videoctrl;
 	
 
 		
