@@ -4,22 +4,31 @@
 #include <stdlib.h>
  
 
-void init_hw_block (hw_block_t *block_ptr, char *name, size_t id, size_t numof_hasha_lanes) {
+void init_hw_block (hw_block_t *block_ptr, char *name, size_t id, size_t numof_hasha_mst, size_t numof_hasha_slv) {
 	
 	block_ptr->name = name;
 	block_ptr->id   = id;
 	
-	block_ptr->numof_hasha_lanes  = numof_hasha_lanes;
-	block_ptr->hasha_lanes_in_use = 0;	
+	block_ptr->numof_hasha_mst  = numof_hasha_mst;
+	block_ptr->hasha_mst_in_use = 0;	
 	
-	// array of pointers to hasha lanes
-	if (numof_hasha_lanes > 0) {
-		block_ptr->hasha_ptrptr = calloc (numof_hasha_lanes, sizeof (hw_hasha_lane_t *));
+	block_ptr->numof_hasha_slv  = numof_hasha_slv;
+	block_ptr->hasha_slv_in_use = 0;	
+	
+	if (numof_hasha_mst > 0) {
+		block_ptr->hasha_mst_ptr = calloc (numof_hasha_mst, sizeof (hw_hasha_mst_t));
 	}
 	else {
-		block_ptr->hasha_ptrptr = NULL;
+		block_ptr->hasha_mst_ptr = NULL;
 	}
 
+	if (numof_hasha_slv > 0) {
+		block_ptr->hasha_slv_ptr = calloc (numof_hasha_slv, sizeof (hw_hasha_slv_t));
+	}
+	else {
+		block_ptr->hasha_slv_ptr = NULL;
+	}
+	
 	pthread_condattr_t ca;
 	pthread_condattr_init (&ca);
 	pthread_cond_init (&block_ptr->event, &ca);
@@ -30,159 +39,139 @@ void init_hw_block (hw_block_t *block_ptr, char *name, size_t id, size_t numof_h
 
 	printf ("init_hw_block executed successfully:\n");
 	printf ("\tname:id \"%s\":%zu\n", block_ptr->name, block_ptr->id);
-	printf ("\tnumof lanes: %zu\n", block_ptr->numof_hasha_lanes);
-	printf ("\tused lanes: %zu\n",  block_ptr->hasha_lanes_in_use);
+	printf ("\tnumber of lanes: master=%zu, slave=%zu\n", block_ptr->numof_hasha_mst, block_ptr->numof_hasha_slv);
+	printf ("\tused lanes: master=%zu, slave=%zu\n", block_ptr->hasha_mst_in_use, block_ptr->hasha_slv_in_use);
 }
 
-void init_hasha (hw_hasha_lane_t *hasha_ptr) {
-
-	assert (hasha_ptr != NULL);
+void connect_blocks (hw_block_t *mst_ptr, size_t mst_lane_num, hw_block_t *slv_ptr, size_t slv_lane_num) {
 	
-	hasha_ptr->req = false;
-	hasha_ptr->ack = false;
+	printf ("Running connect_blocks...");
 	
-	pthread_mutexattr_t ma;
-	pthread_mutexattr_init (&ma);
-	pthread_mutex_init (&hasha_ptr->mutex, &ma);
-}
+	assert (mst_ptr != NULL);
+	assert (slv_ptr != NULL);
 
-//void connect_block (hw_block_t *block_ptr)
-
-void connect_hasha (
-		hw_hasha_lane_t *hasha_ptr,
-		hw_block_t      *src_ptr,
-		size_t           src_lane_num,
-		hw_block_t      *dest_ptr,
-		size_t           dest_lane_num) {
-	
-	printf ("Running connect_hasha...");
-	
-	assert (hasha_ptr  != NULL);
-	assert (src_ptr    != NULL);
-	assert (dest_ptr   != NULL);
-
-	hasha_ptr->src_ptr  = src_ptr;
-	hasha_ptr->dest_ptr = dest_ptr;
-
-	if (src_lane_num < hasha_ptr->src_ptr->numof_hasha_lanes) {
-		if (hasha_ptr->src_ptr->hasha_ptrptr[src_lane_num] != NULL) {
-			printf ("\n\tWARNING: overriding previous connection of source lane %zu!\n", src_lane_num);
+	if (mst_lane_num < mst_ptr->numof_hasha_mst) {
+		if (mst_ptr->hasha_mst_ptr[mst_lane_num].slv_ptr != NULL) {
+			printf ("\n\tWARNING: overriding previous connection of master lane %zu!\n", mst_lane_num);
 		}
 		else {
-			hasha_ptr->src_ptr->hasha_lanes_in_use++;
+			mst_ptr->hasha_mst_in_use++;
 		}
-		hasha_ptr->src_ptr->hasha_ptrptr[src_lane_num] = hasha_ptr;
+		mst_ptr->hasha_mst_ptr[mst_lane_num].slv_ptr = slv_ptr;
+		mst_ptr->hasha_mst_ptr[mst_lane_num].slv_lane_num  = slv_lane_num;
 	}
 	else {
-		printf ("\n\tERROR: not enough spare lanes in \"%s\":%zu!\n",
-			hasha_ptr->src_ptr->name,
-			hasha_ptr->src_ptr->id);
+		printf ("\n\tERROR: not enough spare master lanes in %s id=%zu!\n", mst_ptr->name, mst_ptr->id);
 		return;
 	}
 
-	if (dest_lane_num < hasha_ptr->dest_ptr->numof_hasha_lanes) {
-		if (hasha_ptr->dest_ptr->hasha_ptrptr[dest_lane_num] != NULL) {
-			printf ("\n\tWARNING: overriding previous connection of destination lane %zu!\n", dest_lane_num);
+	if (slv_lane_num < slv_ptr->numof_hasha_slv) {
+		if (slv_ptr->hasha_slv_ptr[slv_lane_num].mst_ptr != NULL) {
+			printf ("\n\tWARNING: overriding previous connection of slave lane %zu!\n", slv_lane_num);
 		}
 		else {
-			hasha_ptr->dest_ptr->hasha_lanes_in_use++;
+			slv_ptr->hasha_slv_in_use++;
 		}
-		hasha_ptr->dest_ptr->hasha_ptrptr[dest_lane_num] = hasha_ptr;
+		slv_ptr->hasha_slv_ptr[slv_lane_num].mst_ptr = mst_ptr;
+		slv_ptr->hasha_slv_ptr[slv_lane_num].mst_lane_num  = mst_lane_num;
 	}
 	else {
-		printf ("\n\tERROR: not enough spare lanes in \"%s\":%zu!\n",
-			hasha_ptr->dest_ptr->name,
-			hasha_ptr->dest_ptr->id);
+		printf ("\n\tERROR: not enough spare slave lanes in %s id=%zu!\n", slv_ptr->name, slv_ptr->id);
 		return;
 	}
-	
+		
 	printf ("OKAY:\n");
-	printf ("\tsource block:\n");
-	printf ("\t\tname:id:lane \"%s\":%zu:%zu\n", hasha_ptr->src_ptr->name, hasha_ptr->src_ptr->id, src_lane_num);
-	printf ("\t\tnumof lanes: %zu\n",   hasha_ptr->src_ptr->numof_hasha_lanes);
-	printf ("\t\tused lanes: %zu\n",    hasha_ptr->src_ptr->hasha_lanes_in_use);
-	printf ("\tdestination block:\n");
-	printf ("\t\tname:id:lane \"%s\":%zu:%zu\n", hasha_ptr->dest_ptr->name, hasha_ptr->dest_ptr->id, dest_lane_num);
-	printf ("\t\tnumof lanes: %zu\n",   hasha_ptr->dest_ptr->numof_hasha_lanes);
-	printf ("\t\tused lanes: %zu\n",    hasha_ptr->dest_ptr->hasha_lanes_in_use);
-
+	printf ("\tMaster (%s, id=%zu, lane=%zu) ---> Slave (%s, id=%zu, lane=%zu)\n",
+		mst_ptr->name, mst_ptr->id, mst_lane_num,
+		slv_ptr->name, slv_ptr->id, slv_lane_num);
+	printf ("\t\t%s id=%zu: total master lanes = %zu (%zu used), total slave lanes = %zu (%zu used)\n", \
+		mst_ptr->name, mst_ptr->id, mst_ptr->numof_hasha_mst, mst_ptr->hasha_mst_in_use, mst_ptr->numof_hasha_slv, mst_ptr->hasha_slv_in_use);
+	printf ("\t\t%s id=%zu: total master lanes = %zu (%zu used), total slave lanes = %zu (%zu used)\n", \
+		slv_ptr->name, slv_ptr->id, slv_ptr->numof_hasha_mst, slv_ptr->hasha_mst_in_use, slv_ptr->numof_hasha_slv, slv_ptr->hasha_slv_in_use);
 }
 
-void hw_block_set_req_val (hw_block_t *block_ptr, size_t hasha_lane_num, bool val) {
+void hw_send_req_to_slv (hw_block_t *block_ptr, size_t mst_lane_num, bool val) {
 	
 	assert (block_ptr != NULL);
 	
-	if (block_ptr->hasha_ptrptr[hasha_lane_num] == NULL) {
+	hw_block_t *slv_ptr = block_ptr->hasha_mst_ptr[mst_lane_num].slv_ptr;
+	
+	if (slv_ptr == NULL) {
+		/*printf ("ERROR in hw_send_req_to_slv: cannot send req because the slave \
+			block pointer associated with hasha_mst_ptr[%zu] entry is NULL!\n", mst_lane_num);
+		printf ("Check for errors and warnings during construction phase.\n");*/
 		return;
-	}
-	if (block_ptr->hasha_ptrptr[hasha_lane_num]->dest_ptr == NULL) {
-		return;
-	}
-	pthread_mutex_lock     (&block_ptr->hasha_ptrptr[hasha_lane_num]->dest_ptr->mutex);
-	block_ptr->hasha_ptrptr[hasha_lane_num]->req = val;
-	pthread_cond_broadcast (&block_ptr->hasha_ptrptr[hasha_lane_num]->dest_ptr->event);
-	pthread_mutex_unlock   (&block_ptr->hasha_ptrptr[hasha_lane_num]->dest_ptr->mutex);
+	}	
+	
+	pthread_mutex_lock     (&slv_ptr->mutex);
+	size_t slv_lane_num = block_ptr->hasha_mst_ptr[mst_lane_num].slv_lane_num;
+	slv_ptr->hasha_slv_ptr[slv_lane_num].req = val;
+	pthread_cond_broadcast (&slv_ptr->event);
+	pthread_mutex_unlock   (&slv_ptr->mutex);
 }
 
-void hw_block_set_ack_val (hw_block_t *block_ptr, size_t hasha_lane_num, bool val) {
+void hw_send_ack_to_mst (hw_block_t *block_ptr, size_t slv_lane_num, bool val) {
+	
+	assert (block_ptr != NULL);
+		
+	hw_block_t *mst_ptr = block_ptr->hasha_slv_ptr[slv_lane_num].mst_ptr;
+	
+	if (mst_ptr == NULL) {
+		/*printf ("ERROR in hw_send_ack_to_mst: cannot send ack because the master \
+			block pointer associated with hasha_slv_ptr[%zu] entry is NULL!\n", slv_lane_num);
+		printf ("Check for errors and warnings during construction phase.\n");*/
+		return;
+	}	
+	
+	pthread_mutex_lock     (&mst_ptr->mutex);
+	size_t mst_lane_num = block_ptr->hasha_slv_ptr[slv_lane_num].mst_lane_num;
+	mst_ptr->hasha_mst_ptr[mst_lane_num].ack = val;
+	pthread_cond_broadcast (&mst_ptr->event);
+	pthread_mutex_unlock   (&mst_ptr->mutex);
+}
+
+
+void hw_wait_for_mst_req (hw_block_t *block_ptr, size_t slv_lane_num, bool val) {
 	
 	assert (block_ptr != NULL);
 	
-	if (block_ptr->hasha_ptrptr[hasha_lane_num] == NULL) {
-		return;
-	}
-	if (block_ptr->hasha_ptrptr[hasha_lane_num]->src_ptr == NULL) {
-		return;
-	}
-	pthread_mutex_lock     (&block_ptr->hasha_ptrptr[hasha_lane_num]->src_ptr->mutex);
-	block_ptr->hasha_ptrptr[hasha_lane_num]->ack = val;
-	pthread_cond_broadcast (&block_ptr->hasha_ptrptr[hasha_lane_num]->src_ptr->event);
-	pthread_mutex_unlock   (&block_ptr->hasha_ptrptr[hasha_lane_num]->src_ptr->mutex);
-}
-
-void hw_block_wait_for_req_val (hw_block_t *block_ptr, size_t hasha_lane_num, bool val) {
-	if (block_ptr->hasha_ptrptr[hasha_lane_num] == NULL) {
+	if (block_ptr->hasha_slv_ptr[slv_lane_num].mst_ptr == NULL) {
 		return; // no need to wait for req if we're the first in the chain
 	}
-	
-	if (block_ptr->hasha_ptrptr[hasha_lane_num]->src_ptr == NULL) {
-		return; // no need to wait for req if we're the first in the chain
-	}
-	
+		
 	pthread_mutex_lock (&block_ptr->mutex);
-	while (block_ptr->hasha_ptrptr[hasha_lane_num]->req != val) {
+	while (block_ptr->hasha_slv_ptr[slv_lane_num].req != val) {
 		pthread_cond_wait (&block_ptr->event, &block_ptr->mutex);
 	}
 	pthread_mutex_unlock  (&block_ptr->mutex);
 }
 
-void hw_block_wait_for_ack_val (hw_block_t *block_ptr, size_t hasha_lane_num, bool val) {
-	if (block_ptr->hasha_ptrptr[hasha_lane_num] == NULL) {
-		return; // no need to wait for req if we're the last in the chain
-	}
+void hw_wait_for_slv_ack (hw_block_t *block_ptr, size_t mst_lane_num, bool val) {
 	
-	if (block_ptr->hasha_ptrptr[hasha_lane_num]->dest_ptr == NULL) {
+	assert (block_ptr != NULL);
+
+	if (block_ptr->hasha_mst_ptr[mst_lane_num].slv_ptr == NULL) {
 		return; // no need to wait for req if we're the last in the chain
 	}
 	
 	pthread_mutex_lock (&block_ptr->mutex);
-	while (block_ptr->hasha_ptrptr[hasha_lane_num]->ack != val) {
+	while (block_ptr->hasha_mst_ptr[mst_lane_num].ack != val) {
 		pthread_cond_wait (&block_ptr->event, &block_ptr->mutex);
 	}
 	pthread_mutex_unlock  (&block_ptr->mutex);
 }
 
-void hasha_notify (hw_block_t *this_ptr, size_t lane_num) {
-	hw_block_set_req_val      (this_ptr, lane_num, true);
-	hw_block_wait_for_ack_val (this_ptr, lane_num, true);
-	hw_block_set_req_val      (this_ptr, lane_num, false);
-	hw_block_wait_for_ack_val (this_ptr, lane_num, false);
+void hasha_notify_slv (hw_block_t *this_ptr, size_t lane_num) {
+	hw_send_req_to_slv  (this_ptr, lane_num, true);
+	hw_wait_for_slv_ack (this_ptr, lane_num, true);
+	hw_send_req_to_slv  (this_ptr, lane_num, false);
+	hw_wait_for_slv_ack (this_ptr, lane_num, false);
 }
 
-void hasha_wait_for (hw_block_t *this_ptr, size_t lane_num) {
-	hw_block_wait_for_req_val (this_ptr, lane_num, true);
-	hw_block_set_ack_val      (this_ptr, lane_num, true);
-	hw_block_wait_for_req_val (this_ptr, lane_num, false);
-	hw_block_set_ack_val      (this_ptr, lane_num, false);
+void hasha_wait_for_mst (hw_block_t *this_ptr, size_t lane_num) {
+	hw_wait_for_mst_req (this_ptr, lane_num, true);
+	hw_send_ack_to_mst  (this_ptr, lane_num, true);
+	hw_wait_for_mst_req (this_ptr, lane_num, false);
+	hw_send_ack_to_mst  (this_ptr, lane_num, false);
 }
 
