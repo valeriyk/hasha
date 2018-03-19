@@ -5,18 +5,18 @@
 #include <stdint.h>
 
 
-typedef enum {MASTER, SLAVE, UNUSED} hasha_port_type_t;
+typedef enum {MASTER, SLAVE, UNUSED} ptlm_port_type_t;
 
-typedef enum {ACK, NOACK} hasha_resp_type_t;
+typedef enum {ACK, NOACK} ptlm_resp_type_t;
 
-typedef struct hasha_block_t hasha_block_t;
+typedef struct ptlm_block_t ptlm_block_t;
 
-typedef struct hasha_port_addr_t {
+typedef struct ptlm_port_addr_t {
 	hasha_block_t *block_ptr;
 	size_t         port_idx;
-} hasha_port_addr_t;
+} ptlm_port_addr_t;
 					
-typedef union hasha_data_t {
+typedef union ptlm_data_t {
 	float     sfloat;
 	double    dfloat;
 	bool      boolean;
@@ -29,27 +29,28 @@ typedef union hasha_data_t {
 	uint64_t  uint64;
 	 int64_t   int64;
 	void      *void_ptr;
-} hasha_data_t;
+} ptlm_data_t;
 
-typedef struct hasha_port_t {
+typedef struct ptlm_port_t {
 	
-	hasha_port_type_t  type;      // Master port or slave port
+	ptlm_port_type_t  type;      // Master port or slave port
 	
 	bool               pending;   // Master port: pending ack from slave
 	                              // Slave  port: pending req from master
 	
-	hasha_resp_type_t  resp_type; // Whether the slave port will acknowledge
+	ptlm_resp_type_t  resp_type; // Whether the slave port will acknowledge
 	                              // the transaction; failure to do so may cause
 	                              // missing transactions (as in the case of
 	                              // edge-sensitive interrupts)
 	
-	hasha_port_addr_t  this_port_addr;   // {block:port} address of this very port
+	ptlm_port_addr_t  this_port_addr;   // {block:port} address of this very port
 	
-	hasha_port_addr_t  return_port_addr; // {block:port} address of the counterpart,
+	ptlm_port_addr_t  opp_port_addr; // {block:port} address of the opposite port
+	                                 // (the counterpart),
 	                                     // specifies the destination of a master port
 	                                     // or the source of a slave port.
 	
-	hasha_data_t       data;      // Driven by master, consumed by slave
+	ptlm_data_t       data;      // Driven by master, consumed by slave
 	
 	size_t             data_addr; // Optional address of data (e.g.
 	                              // register address or memory address).
@@ -57,9 +58,9 @@ typedef struct hasha_port_t {
 	                              
 	void *handler; // function pointer
 	
-} hasha_port_t;
+} ptlm_port_t;
 
-
+/*
 typedef struct hasha_signal_port_t {
 	
 	hasha_port_type_t  type;      // Master port or slave port
@@ -104,15 +105,35 @@ typedef struct hasha_port2_t {
 	size_t             addr;     // Address of data (e.g. register/memory address).
 	                             // Driven by master, consumed by slave
 } hasha_port2_t;
+*/
+
+//~ typedef struct hasha_payload_t {
+	//~ hasha_data_t   data;
+	//~ size_t         data_addr;
+	//~ size_t         port_idx;
+	//~ bool           valid;
+//~ } hasha_payload_t;
 
 
-typedef struct hasha_payload_t {
-	hasha_data_t   data;
-	size_t         data_addr;
-	size_t         port_idx;
-	bool           valid;
-} hasha_payload_t;
+struct ptlm_proc_t {
+	size_t            ports_num;
+	size_t            ports_used;
+	hasha_port_t     *port_arr;
+	
+	pthread_cond_t    event;
+	pthread_mutex_t   mutex;
+	
+	pthread_t         thread;
+}
 
+struct ptlm_block_t {
+	char             *name;
+	size_t            id;
+	ptlm_proc_t mst;
+	ptlm_proc_t slv;
+}
+
+/*
 struct hasha_block_t {
 	char             *name;
 	size_t            id;
@@ -125,7 +146,7 @@ struct hasha_block_t {
 	
 	pthread_t         thread;
 };
-
+*/
 hasha_block_t hasha_new_block     (char *name, size_t id, size_t ports_num);
 
 //void hasha_link_blocks (hasha_block_t *mst_ptr, size_t mst_lane_idx, hasha_block_t *slv_ptr, size_t slv_lane_idx, hasha_resp_type_t resp_type);
